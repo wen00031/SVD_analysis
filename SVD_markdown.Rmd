@@ -1,0 +1,175 @@
+---
+title: "Graduate Admission -- based on SVD analysis"
+author: "Jincheng Wen"
+date: "April 7, 2019"
+output: 
+  html_document:
+    theme: cerulean
+    df_print: kable
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr)
+library(lattice)
+library(calibrate)
+library(tidyverse)
+```
+
+
+```{r}
+Admission <- read.csv("Admission_Predict.csv", row.names = "Serial.No.")
+```
+
+
+The purpose of this paper is using SVD method to analyze how likely a student will be admited under his situation.This data set is from [Kaggle](https://www.kaggle.com/mohansacharya/graduate-admissionshttps://www.kaggle.com/mohansacharya/graduate-admissions), which is inspired by the UCLA Graduate Dataset.
+
+here are some question I want to explore the answers:
+
+1.
+2.
+
+### Data description
+
+This data set has 8 columns 
+
+```{r col name, echo=FALSE}
+colnames(Admission)
+```
+
+The *GRE.Score* and *TOEFL.Score* mean the standard exam grade of GRE and TOEFL. *University.Ranking* is the undergraduate school rank of all applicants. *SOP* is the statement of purpose, basically explain why you are applying to that program. *LOR* stands for Letter of Recommendation.*CGPA* is the gpa of applicants. *Research* is the research experience of students, if have, *Research* will be 1, otherwise it will be 0. *Chance.of.Admit* stands for the possibility that applicant will be admited.
+
+And there are `r nrow(Admission)` rows, which means the number of applicants.
+
+the data description shows as following:
+```{r Data description, echo=FALSE}
+summary(Admission)
+```
+
+### Data wrangling
+
+From the data set shows below, we could find that the GRE and TOEFL scores have very big adsolute value  compared with other features. Therefore, this data set should be nomalized.
+
+```{r before scale data set, echo=FALSE}
+Admission %>% head(5)
+```
+
+And the changes of admit column will be chosen as factor to seperate the applicants. I will cut the column to 3 part: "good", "medium" and "bad".
+
+```{r cut label, include=FALSE}
+Admission$Chance.of.Admit = cut(Admission$Chance.of.Admit, 3, labels = c("good", "medium", "bad"))
+```
+
+```{r label of choose of admition,echo=FALSE}
+levels(Admission$Chance.of.Admit)
+```
+
+After data clean, this data set show as following:
+
+```{r scale data set, echo=FALSE}
+Admission_new <- scale(Admission[-8])
+Admission_new %>% head()
+```
+
+### Implement Singular Value Decomposition (SVD)
+
+```{r svd,include=FALSE}
+AdmissionSVD <- svd(Admission_new)
+
+
+
+```
+
+```{r}
+d = AdmissionSVD$d
+d
+```
+
+The singular value above represent the importance of every component acount for the whole data set. We can graph a bar chart to visualize the importance of every factor.
+
+
+```{r Importance, echo=FALSE}
+singular_value = d / sum(d)
+
+variation.explained.plot <- barchart(singular_value~c(1:length(d)), 
+                                     horizontal = F, xlab = "Component",
+                                     ylab="Percentage of variation explained")
+variation.explained.plot
+```
+
+From above analysis, about 44 percent variation of applicants' conditions could be explained by first component.
+
+```{r}
+u = AdmissionSVD$u
+v = AdmissionSVD$v
+head(u)
+v
+```
+
+The * **U** * is a 40x7 matrix, here we just show first 6 rows for every column. 
+The ***V*** is a 7x7 matrix, which corresponds to 7 different scores or conditions of applicants.
+
+## SVD analysis
+
+```{r u analysis,echo = FALSE}
+df_u <- as.data.frame(u)
+df_u %>% ggplot(aes(V1, V2, color = Admission$Chance.of.Admit, size = Admission$Research)) +
+  geom_point() +
+  labs(title = "First Component VS Second Component",
+       x = "First Compnoent",
+       y = "Second Component",
+       colour = "Admission",
+       size = "Research")+
+  geom_text(label = rownames(Admission),
+            size = 3.5,
+    angle = 30,
+    hjust = 0,
+    nudge_x = 0.0005,
+    nudge_y = 0.005,
+    check_overlap = TRUE)
+
+```
+
+```{r ,echo = FALSE}
+df_u %>% ggplot(aes(V1, V2, color = Admission$Chance.of.Admit, size = Admission$LOR)) +
+  geom_point() +
+  labs(title = "First Component VS Second Component",
+       x = "First Compnoent",
+       y = "Second Component",
+       colour = "Admission",
+       size = "LOR")
+
+```
+
+```{r ,echo = FALSE}
+df_u %>% ggplot(aes(V1, V2, color = Admission$Chance.of.Admit, size = Admission$CGPA)) +
+  geom_point() +
+  labs(title = "First Component VS Second Component",
+       x = "First Compnoent",
+       y = "Second Component",
+       colour = "Admission",
+       size = "GPA")
+
+```
+
+```{r v analysis, echo= FALSE}
+df_v <- as.data.frame(v)
+df_v %>% ggplot(aes(V1, V2)) +
+  geom_point() +
+  geom_text(
+    label = colnames(Admission_new),
+    size = 3.5,
+    angle = 30,
+    hjust = 0,
+    nudge_x = 0.0005,
+    nudge_y = 0.005,
+    check_overlap = TRUE
+    ) +
+  labs(title = "First Component VS Second Component",
+       x = "First Compnoent",
+       y = "Second Component"
+       )
+```
+
